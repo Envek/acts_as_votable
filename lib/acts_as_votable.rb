@@ -13,6 +13,9 @@ module ActsAsVotable
     ActiveRecord::Base.extend ActsAsVotable::Extenders::Voter
   end
 
+  mattr_accessor :allow_anonymous
+  @@allow_anonymous = false
+
 end
 
 require 'acts_as_votable/extenders/controller'

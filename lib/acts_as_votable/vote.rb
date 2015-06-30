@@ -21,7 +21,6 @@ module ActsAsVotable
     scope :by_type,  lambda{ |klass| where(:voter_type => klass) }
 
     validates_presence_of :votable_id
-    validates_presence_of :voter_id
 
   end
 

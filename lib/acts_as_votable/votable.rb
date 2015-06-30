@@ -71,35 +71,40 @@ module ActsAsVotable
 
       self.vote_registered = false
 
-      if options[:voter].nil?
+      if options[:voter].nil? && !self.class.votable_options[:allow_anonymous]
         return false
       end
 
       # find the vote
-      _votes_ = find_votes_for({
+      _votes_ = options[:voter] && find_votes_for({
         :voter_id => options[:voter].id,
         :vote_scope => options[:vote_scope],
         :voter_type => options[:voter].class.base_class.name
-      })
+      }) || []
 
       if _votes_.count == 0 or options[:duplicate]
         # this voter has never voted
         vote = ActsAsVotable::Vote.new(
           :votable => self,
-          :voter => options[:voter],
-          :vote_scope => options[:vote_scope]
+          :voter => options.delete(:voter),
+          :vote_scope => options.delete(:vote_scope),
         )
       else
         # this voter is potentially changing his vote
         vote = _votes_.last
+        options.extract! :voter, :vote_scope
       end
 
       last_update = vote.updated_at
 
-      vote.vote_flag = votable_words.meaning_of(options[:vote])
+      vote.vote_flag = votable_words.meaning_of(options.delete(:vote))
 
       #Allowing for a vote_weight to be associated with every vote. Could change with every voter object
-      vote.vote_weight = (options[:vote_weight].to_i if options[:vote_weight].present?) || 1
+      vote_weight = options.delete(:vote_weight)
+      vote.vote_weight = (vote_weight.to_i if vote_weight.present?) || 1
+
+      # Assign any options that are left in options hash directly to record
+      vote.attributes = options
 
       if vote.save
         self.vote_registered = true if last_update != vote.updated_at
@@ -124,15 +129,15 @@ module ActsAsVotable
     end
 
     def vote_up voter, options={}
-      self.vote_by :voter => voter, :vote => true, :vote_scope => options[:vote_scope], :vote_weight => options[:vote_weight]
+      self.vote_by options.merge(:voter => voter, :vote => true)
     end
 
     def vote_down voter, options={}
-      self.vote_by :voter => voter, :vote => false, :vote_scope => options[:vote_scope], :vote_weight => options[:vote_weight]
+      self.vote_by options.merge(:voter => voter, :vote => false)
     end
 
     def unvote_by  voter, options = {}
-      self.unvote :voter => voter, :vote_scope => options[:vote_scope] #Does not need vote_weight since the votes_for are anyway getting destroyed
+      self.unvote options.merge(:voter => voter) #Does not need vote_weight since the votes_for are anyway getting destroyed
     end
 
     def scope_cache_field field, vote_scope
